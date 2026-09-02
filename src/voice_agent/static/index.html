@@ -71,6 +71,7 @@
     .theme-options { display:grid; grid-template-columns:repeat(4,1fr); gap:3px; }
     .theme-options button { min-height:30px; border:1px solid transparent; background:transparent; color:#6f7a83; font:650 .56rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; text-transform:uppercase; letter-spacing:.09em; }
     .theme-options button[aria-pressed="true"] { border-color:#47545e; background:#171d22; color:#dce5ea; }
+    html .device-panel .theme-control { margin-top:12px; padding:12px 0 0; border:0; border-top:1px solid var(--line-soft); background:transparent; }
     .text-row { display:flex; gap:8px; }
     input,select { border:1px solid #303840; border-radius:5px; background:#0a0d10; color:var(--text); font:inherit; outline:none; transition:border-color .2s var(--ease),box-shadow .2s var(--ease); }
     input { min-width:0; flex:1; padding:12px 13px; }
@@ -85,6 +86,7 @@
     .utility-control { min-height:76px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; border:1px solid #333c44; background:#151a1f; color:#929ca4; }
     .utility-control svg { width:19px; height:19px; }
     .utility-control span { font:600 .58rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.12em; text-transform:uppercase; }
+    #micSettings span { font-size:.54rem; letter-spacing:.06em; }
     .utility-control:hover:not(:disabled) { background:#1b2228; border-color:#4a5761; color:#d8e0e5; }
     #stop:not(:disabled) { border-color:#704343; color:#e69b9b; }
     #mic { min-height:76px; display:grid; grid-template-columns:38px 1fr; grid-template-rows:1fr 1fr; column-gap:12px; align-items:center; padding:12px 18px; border:1px solid #52758b; background:#17232b; text-align:left; user-select:none; }
@@ -205,7 +207,7 @@
     <div class="voice-row">
       <button id="stop" class="utility-control" title="Stop response" aria-label="Stop response" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="6" y="6" width="12" height="12" fill="currentColor"/></svg><span>Stop</span></button>
       <button id="mic" aria-label="Talk to Hermes" title="Tap or hold to talk"><svg class="mic-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="8" y="3" width="8" height="12" rx="4" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M8.5 21h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="square"/></svg><span class="control-kicker">Voice input</span><span id="micLabel">Tap to talk</span></button>
-      <button id="micSettings" class="utility-control" aria-label="Choose microphone" title="Choose microphone"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M10 14v6" stroke="currentColor" stroke-width="1.7" stroke-linecap="square"/></svg><span>Input</span></button>
+      <button id="micSettings" class="utility-control" aria-label="Open settings" title="Open settings" aria-expanded="false" aria-controls="devicePanel"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M10 14v6" stroke="currentColor" stroke-width="1.7" stroke-linecap="square"/></svg><span>Settings</span></button>
     </div>
     <div id="micPolicy" class="mic-policy" role="tablist" aria-label="Live call microphone behavior" hidden>
       <button id="openMicPolicy" role="tab" aria-selected="true">Open mic</button>
@@ -216,6 +218,15 @@
       <label for="micSelect">Microphone input</label>
       <select id="micSelect"><option value="">System default microphone</option></select>
       <div id="activeMic">Active: system default microphone</div>
+      <div class="theme-control">
+        <span>Theme</span>
+        <div class="theme-options" role="group" aria-label="Color theme">
+          <button type="button" data-theme-choice="graphite" aria-pressed="true">Graphite</button>
+          <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
+          <button type="button" data-theme-choice="green" aria-pressed="false">Green</button>
+          <button type="button" data-theme-choice="red" aria-pressed="false">Red</button>
+        </div>
+      </div>
     </div>
     <div class="mode-switch" role="tablist" aria-label="Voice mode">
       <button id="pushMode" role="tab" aria-selected="true">Push to talk</button>
@@ -225,15 +236,6 @@
       <div id="speedMetric" class="metric"><span class="metric-label">Token speed</span><span class="metric-reading"><strong id="tokenSpeed">—</strong><small>tok/s</small></span></div>
       <div class="metric"><span class="metric-label">Context</span><span class="metric-reading"><strong id="contextUsage">— / 1.05M</strong></span><div id="contextTrack" class="context-track"></div></div>
       <div class="metric"><span class="metric-label">Output</span><span class="metric-reading"><strong id="outputTokens">—</strong><small>tokens</small></span></div>
-    </div>
-    <div class="theme-control">
-      <span>Theme</span>
-      <div class="theme-options" role="group" aria-label="Color theme">
-        <button type="button" data-theme-choice="graphite" aria-pressed="true">Graphite</button>
-        <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
-        <button type="button" data-theme-choice="green" aria-pressed="false">Green</button>
-        <button type="button" data-theme-choice="red" aria-pressed="false">Red</button>
-      </div>
     </div>
   </section>
 
@@ -839,6 +841,7 @@ wakeMicPolicy.onclick = () => setCallPolicy('wake');
 muteMicPolicy.onclick = () => setCallPolicy('muted');
 micSettingsBtn.onclick = async () => {
   devicePanel.hidden = !devicePanel.hidden;
+  micSettingsBtn.setAttribute('aria-expanded', String(!devicePanel.hidden));
   if (!devicePanel.hidden) await loadMicrophones(true);
 };
 micSelect.onchange = async () => {
