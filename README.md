@@ -1,8 +1,10 @@
 # Hermes Live Chat
 
-Hermes Live Chat is a local-first, mobile-friendly voice and text interface for the [Hermes Agent](https://github.com/NousResearch/hermes-agent). It adds a polished hands-free conversation layer without replacing Hermes' model routing, tools, skills, memory, MCP connections, or configuration.
+Hermes Live Chat is a local-first, mobile-friendly voice and text interface for the [Hermes Agent](https://github.com/NousResearch/hermes-agent). It is designed to run on your own hardware and reach your phone privately through Tailscale. It adds a polished hands-free conversation layer without replacing Hermes' model routing, tools, skills, memory, MCP connections, or configuration.
 
 The interface is model-agnostic: every turn goes through a selected Hermes profile, so changing the underlying model does not require frontend or application changes.
+
+![Hermes Live Chat](docs/assets/hermes-live-chat.png)
 
 ## Features
 
@@ -20,6 +22,30 @@ The interface is model-agnostic: every turn goes through a selected Hermes profi
 - Graphite, Light, Green, and Red themes with saved preference
 - Responsive phone and desktop layout
 - Private mobile access through Tailscale HTTPS
+
+## Why it exists
+
+The main use case is replacing Telegram as the remote chat surface for a personal Hermes agent. Instead of sending requests, conversation history, generated files, and voice recordings through a Telegram bot, Hermes Live Chat connects your phone directly to the agent running on your own hardware.
+
+With a fully local Hermes profile, speech recognition, model inference, conversation state, generated attachments, and speech synthesis all stay on your machine. Tailscale supplies the encrypted private route to that machine without publishing the interface to the open internet. If you configure Hermes with a hosted model provider, that provider's privacy terms still apply.
+
+This project is developed and tested on an **NVIDIA DGX Spark**, but it is not tied to the Spark or to one specific model.
+
+## See it in action
+
+The GIF below was captured from the running DGX Spark deployment. It shows a real request, the immediate spoken acknowledgement, the working state, and Hermes' final response.
+
+![Hermes Live Chat responding to a request](docs/assets/hermes-live-chat-demo.gif)
+
+[Listen to Hermes speak the local privacy response (MP3)](docs/assets/hermes-private-local.mp3)
+
+GIF files cannot carry audio, so the spoken response is provided as a separate clip.
+
+## Screenshots
+
+Microphone and theme settings:
+
+![Hermes Live Chat settings panel](docs/assets/hermes-live-chat-settings.png)
 
 ## How it works
 
@@ -60,7 +86,7 @@ Wake mode locally transcribes nearby utterances so it can recognize â€œHermes.â€
 - `ffmpeg` for browser audio conversion
 - Canary `transcribe.cpp` plus its GGUF model, or faster-whisper
 - A compatible Kokoro Studio API for spoken responses
-- HTTPS when accessing the microphone from another device; Tailscale Serve works well
+- Tailscale Serve for the intended private phone-to-agent connection
 
 ## Install
 
@@ -113,9 +139,9 @@ Follow logs with `journalctl --user -u hermes-live-chat.service -f`.
 
 Edit the service file if your checkout is not at `~/hermes-live-chat`, then copy it again and reload systemd.
 
-## Mobile access
+## Designed for Tailscale
 
-Mobile browsers require a secure origin for microphone capture. A private Tailscale route can expose the local service without opening it to the public internet:
+Hermes Live Chat is intended to sit behind Tailscale. Mobile browsers require a secure origin for microphone capture, and Tailscale Serve provides HTTPS while keeping the service inside your private tailnet:
 
 ```bash
 tailscale serve --bg --https=443 /voice http://127.0.0.1:8765
