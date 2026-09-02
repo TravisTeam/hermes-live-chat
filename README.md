@@ -6,6 +6,23 @@ The interface is model-agnostic: every turn goes through a selected Hermes profi
 
 ![Hermes Live Chat](docs/assets/hermes-live-chat.png)
 
+## Connect your phone through Tailscale
+
+Hermes Live Chat is built around a private Tailscale connection. Install Tailscale on both the host running Hermes and your phone, sign both devices into the same tailnet, then publish the local app from the host:
+
+```bash
+tailscale serve --bg --https=443 /voice http://127.0.0.1:8765
+tailscale serve status
+```
+
+Open the private address on your phone:
+
+```text
+https://YOUR-MACHINE.YOUR-TAILNET.ts.net/voice/
+```
+
+Tailscale provides the HTTPS origin required by mobile microphone permissions while keeping the page available only to devices in your tailnet. You do not need to expose port 8765 to the public internet.
+
 ## Features
 
 - Push to Talk by tap, press-and-hold, or Spacebar
@@ -42,6 +59,10 @@ The GIF below was captured from the running DGX Spark deployment. It shows a rea
 GIF files cannot carry audio, so the spoken response is provided as a separate clip.
 
 ## Screenshots
+
+Phone layout:
+
+![Hermes Live Chat mobile interface](docs/assets/hermes-live-chat-mobile.png)
 
 Microphone and theme settings:
 
@@ -239,3 +260,7 @@ These are observed examples, not minimum requirements. A smaller model, hosted p
 - Session IDs and filenames are sanitized before filesystem use.
 - Generated artifacts are restricted to per-session directories and sandboxed when served.
 - The application has no built-in public-internet authentication; do not expose it publicly without adding one.
+
+## License
+
+Hermes Live Chat is available under the [MIT License](LICENSE).
