@@ -1,0 +1,29 @@
+[project]
+name = "hermes-live-chat"
+version = "0.1.0"
+description = "Private, local-first voice and text interface for Hermes"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.27",
+  "python-multipart>=0.0.9",
+  "requests>=2.31",
+  "faster-whisper>=1.0",
+  "openai>=1.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+voice_agent = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

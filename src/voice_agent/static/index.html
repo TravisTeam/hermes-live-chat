@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0a0c0e">
+  <title>Hermes Live Chat</title>
+  <script>try{document.documentElement.dataset.theme=localStorage.hermesLiveTheme||'graphite'}catch{}</script>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --bg:#0a0c0e; --panel:#111519; --panel-2:#151a1f; --line:#293038; --line-soft:#1d2329; --text:#e8edf1; --muted:#8b959e; --accent:#8fc4e5; --accent-strong:#b8dcf2; --danger:#e06b6b; --ease:cubic-bezier(.16,1,.3,1); }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); }
+    body::before { content:""; position:fixed; inset:0; pointer-events:none; opacity:.3; background-image:linear-gradient(#ffffff05 1px, transparent 1px),linear-gradient(90deg,#ffffff04 1px,transparent 1px); background-size:32px 32px; mask-image:linear-gradient(to bottom,black,transparent 72%); }
+    main { position:relative; width:min(880px,100%); min-height:100vh; margin:auto; padding:20px 18px calc(22px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:14px; }
+    header { display:grid; grid-template-columns:1fr auto; align-items:end; gap:20px; padding:15px 16px; border:1px solid var(--line); background:#0e1114e8; }
+    .brand-kicker,.role,.control-kicker { font:600 .64rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; text-transform:uppercase; letter-spacing:.16em; color:var(--muted); }
+    h1 { font-size:1.16rem; font-weight:620; margin:7px 0 0; letter-spacing:-.015em; }
+    .status { display:grid; grid-template-columns:repeat(4,auto); gap:8px 15px; justify-content:end; }
+    .pill { display:flex; align-items:center; gap:7px; font:600 .66rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; text-transform:uppercase; letter-spacing:.08em; color:#6f7982; white-space:nowrap; }
+    .pill::before { content:""; width:6px; height:6px; background:#626b73; box-shadow:0 0 0 1px #000; }
+    .pill.ok { color:#a5afb7; }
+    .pill.ok::before { background:#78bfa2; box-shadow:0 0 8px #78bfa266; }
+    .pill.bad { color:#bd7b7b; }
+    .pill.bad::before { background:var(--danger); box-shadow:0 0 8px #e06b6b55; }
+    #conversation { flex:1; min-height:42vh; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding:10px 0; scrollbar-color:#333a41 transparent; }
+    .empty { color:#717b84; margin:auto; width:min(100%,490px); padding:32px; border:1px solid var(--line-soft); text-align:left; line-height:1.65; font-size:.92rem; }
+    .empty::before { content:"VOICE CHANNEL / READY"; display:block; margin-bottom:12px; color:var(--accent); font:600 .65rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.14em; }
+    .turn { width:min(88%,690px); padding:13px 15px 14px; border-radius:7px; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; font-size:.94rem; animation:turn-in .28s var(--ease) both; }
+    .turn.user { align-self:flex-end; background:#19232b; border:1px solid #2c3f4d; border-right:3px solid var(--accent); }
+    .turn.assistant { position:relative; align-self:flex-start; padding-right:102px; background:var(--panel); border:1px solid var(--line); border-left:3px solid #58636d; }
+    .turn.assistant.has-attachment { width:min(94%,720px); padding-right:15px; padding-bottom:52px; }
+    .role { margin-bottom:8px; color:#78838c; }
+    .turn.user .role { color:#9abed4; }
+    .replay { position:absolute; right:9px; bottom:9px; height:30px; display:flex; align-items:center; gap:7px; padding:0 9px; border:1px solid #39434b; border-radius:4px; background:#171d22; color:#aeb7be; font:600 .62rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.08em; text-transform:uppercase; transition:background .2s var(--ease),border-color .2s var(--ease),color .2s var(--ease),transform .2s var(--ease); }
+    .replay svg { width:14px; height:14px; }
+    .replay:hover { background:#202931; border-color:#52616d; color:#e5edf2; }
+    .replay:active { transform:translateY(1px); }
+    .attachments { display:grid; gap:8px; margin-top:13px; }
+    .attachment { overflow:hidden; border:1px solid #333d45; border-radius:5px; background:#0b0f12; }
+    .attachment-preview { display:block; background:#07090b; }
+    .attachment-preview img { display:block; width:100%; max-height:380px; object-fit:contain; }
+    .attachment-preview.failed,.media-fallback { min-height:74px; display:flex; align-items:center; justify-content:center; padding:16px; color:#78838c; font:600 .62rem/1.4 ui-monospace,SFMono-Regular,Consolas,monospace; text-align:center; text-transform:uppercase; letter-spacing:.08em; }
+    .attachment video { display:block; width:100%; max-height:380px; background:#050607; }
+    .attachment audio { display:block; width:calc(100% - 20px); height:42px; margin:12px 10px; }
+    .attachment-info { min-height:54px; display:grid; grid-template-columns:28px minmax(0,1fr) auto; align-items:center; gap:10px; padding:9px 10px; border-top:1px solid #252c32; }
+    .attachment.file .attachment-info { border-top:0; }
+    .attachment-icon { width:26px; height:30px; color:#8faabd; }
+    .attachment-name { overflow:hidden; color:#d7e0e6; font-size:.78rem; font-weight:620; text-overflow:ellipsis; white-space:nowrap; }
+    .attachment-meta { margin-top:3px; color:#707b84; font:500 .59rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; text-transform:uppercase; letter-spacing:.08em; }
+    .attachment-actions { display:flex; gap:5px; }
+    .attachment-actions a { display:inline-flex; align-items:center; min-height:29px; padding:0 9px; border:1px solid #3b4750; border-radius:4px; color:#aebbc4; font:650 .58rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; text-decoration:none; text-transform:uppercase; letter-spacing:.08em; }
+    .attachment-actions a:hover { border-color:#668399; color:#e1ecf2; background:#172028; }
+    .composer { position:sticky; bottom:0; padding:13px; border:1px solid #303840; background:#0e1215f2; backdrop-filter:blur(18px); box-shadow:0 18px 60px #000a; }
+    .mode-switch { display:grid; grid-template-columns:1fr 1fr; gap:3px; margin-top:9px; padding:3px; border:1px solid #262e35; background:#090c0e; }
+    .mode-switch button { min-height:34px; border:1px solid transparent; background:transparent; color:#6f7a83; font:650 .62rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; text-transform:uppercase; letter-spacing:.13em; }
+    .mode-switch button[aria-selected="true"] { border-color:#394550; background:#171d22; color:#d9e3e9; }
+    .mode-switch button:hover { color:#d9e3e9; }
+    .performance-strip { display:grid; grid-template-columns:.85fr 1.5fr .75fr; margin-top:9px; border:1px solid #242c32; background:#090c0e; }
+    .metric { min-width:0; padding:8px 10px 9px; border-right:1px solid #242c32; }
+    .metric:last-child { border-right:0; }
+    .metric-label { display:block; color:#66717a; font:600 .55rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; text-transform:uppercase; letter-spacing:.12em; }
+    .metric-reading { display:flex; align-items:baseline; gap:4px; margin-top:5px; white-space:nowrap; }
+    .metric-reading strong { overflow:hidden; color:#b8c5cd; font:650 .72rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; text-overflow:ellipsis; }
+    .metric-reading small { color:#5e6971; font:600 .52rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; text-transform:uppercase; }
+    .metric.live .metric-reading strong { color:var(--accent-strong); }
+    .context-track { height:2px; margin-top:7px; background:#20262b; }
+    .context-track::after { content:""; display:block; width:var(--context-use,0%); height:100%; background:#86b7d3; transition:width .45s var(--ease); }
+    .theme-control { display:grid; grid-template-columns:auto 1fr; align-items:center; gap:12px; margin-top:9px; padding:4px 4px 4px 10px; border:1px solid #242c32; background:#090c0e; }
+    .theme-control > span { color:#66717a; font:600 .55rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; text-transform:uppercase; letter-spacing:.12em; }
+    .theme-options { display:grid; grid-template-columns:repeat(4,1fr); gap:3px; }
+    .theme-options button { min-height:30px; border:1px solid transparent; background:transparent; color:#6f7a83; font:650 .56rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; text-transform:uppercase; letter-spacing:.09em; }
+    .theme-options button[aria-pressed="true"] { border-color:#47545e; background:#171d22; color:#dce5ea; }
+    .text-row { display:flex; gap:8px; }
+    input,select { border:1px solid #303840; border-radius:5px; background:#0a0d10; color:var(--text); font:inherit; outline:none; transition:border-color .2s var(--ease),box-shadow .2s var(--ease); }
+    input { min-width:0; flex:1; padding:12px 13px; }
+    input:focus,select:focus { border-color:#61839a; box-shadow:0 0 0 2px #8fc4e512; }
+    input::placeholder { color:#66717a; }
+    select { width:100%; padding:10px; }
+    button { border:0; border-radius:5px; color:var(--text); font:inherit; font-weight:650; cursor:pointer; touch-action:none; transition:background .2s var(--ease),border-color .2s var(--ease),color .2s var(--ease),transform .2s var(--ease); }
+    button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    #send { min-width:82px; padding:0 18px; border:1px solid #719db7; background:#86b7d3; color:#0b1217; font:700 .7rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; text-transform:uppercase; letter-spacing:.12em; }
+    #send:hover { background:#a1cee7; }
+    .voice-row { display:grid; grid-template-columns:72px minmax(180px,1fr) 72px; align-items:stretch; gap:8px; margin-top:9px; }
+    .utility-control { min-height:76px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; border:1px solid #333c44; background:#151a1f; color:#929ca4; }
+    .utility-control svg { width:19px; height:19px; }
+    .utility-control span { font:600 .58rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.12em; text-transform:uppercase; }
+    .utility-control:hover:not(:disabled) { background:#1b2228; border-color:#4a5761; color:#d8e0e5; }
+    #stop:not(:disabled) { border-color:#704343; color:#e69b9b; }
+    #mic { min-height:76px; display:grid; grid-template-columns:38px 1fr; grid-template-rows:1fr 1fr; column-gap:12px; align-items:center; padding:12px 18px; border:1px solid #52758b; background:#17232b; text-align:left; user-select:none; }
+    #mic .mic-icon { grid-row:1/3; width:30px; height:30px; color:var(--accent); }
+    #mic .control-kicker { align-self:end; color:#83a9bf; }
+    #micLabel { align-self:start; color:#e4edf2; font-size:.95rem; font-weight:620; }
+    #mic:hover { background:#1b2b35; border-color:#76a2bd; }
+    #mic.recording { background:#2a1719; border-color:#b6555b; box-shadow:inset 3px 0 0 var(--danger); }
+    #mic.recording .mic-icon,#mic.recording .control-kicker { color:#e97a80; }
+    #mic.call-active { background:#17291f; border-color:#4f8a6d; box-shadow:inset 3px 0 0 #78bfa2; }
+    #mic.call-active .mic-icon,#mic.call-active .control-kicker { color:#83caaa; }
+    #mic.wake-active { background:#282317; border-color:#88713d; box-shadow:inset 3px 0 0 #d2ad5a; }
+    #mic.wake-active .mic-icon,#mic.wake-active .control-kicker { color:#e0bd6c; }
+    #mic.muted { background:#25191a; border-color:#75484a; box-shadow:inset 3px 0 0 #b85e62; }
+    #mic.muted .mic-icon,#mic.muted .control-kicker { color:#d8797d; }
+    #mic.call-active .mic-icon { animation:call-pulse 1.8s var(--ease) infinite; }
+    #mic.wake-active .mic-icon { animation:call-pulse 2.4s var(--ease) infinite; }
+    .mic-policy { display:grid; grid-template-columns:repeat(3,1fr); gap:3px; margin-top:9px; padding:3px; border:1px solid #303840; background:#090c0e; }
+    .mic-policy button { min-height:34px; border:1px solid transparent; background:transparent; color:#6f7a83; font:650 .59rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; text-transform:uppercase; letter-spacing:.1em; }
+    .mic-policy button[aria-selected="true"] { border-color:#4a5964; background:#192127; color:#dce5ea; }
+    .mic-policy #wakeMicPolicy[aria-selected="true"] { border-color:#766337; background:#272216; color:#e0bd6c; }
+    .mic-policy #muteMicPolicy[aria-selected="true"] { border-color:#704548; background:#25191a; color:#df8c90; }
+    .device-panel { margin-top:9px; padding:12px; border:1px solid var(--line); border-radius:5px; background:#0a0d10; }
+    .device-panel label { display:block; color:#8d98a1; font:600 .64rem/1 ui-monospace,SFMono-Regular,Consolas,monospace; text-transform:uppercase; letter-spacing:.12em; margin-bottom:9px; }
+    #activeMic { margin-top:8px; color:#8cb9a7; font-size:.74rem; }
+    #stop:disabled,button:disabled { opacity:.34; cursor:default; }
+    .activity-row { min-height:29px; margin-top:8px; display:flex; align-items:center; justify-content:center; gap:11px; color:#8a959e; }
+    .composer > .activity-row { min-height:35px; margin:0 0 9px; border-bottom:1px solid #22292f; }
+    #activity { font:500 .74rem/1.3 ui-monospace,SFMono-Regular,Consolas,monospace; }
+    .thinking-signal { height:15px; display:flex; align-items:center; gap:3px; }
+    .thinking-signal i { display:block; width:3px; height:4px; background:var(--accent); transform-origin:center; animation:signal 1.05s var(--ease) infinite; }
+    .thinking-signal i:nth-child(2) { animation-delay:-.82s; }.thinking-signal i:nth-child(3) { animation-delay:-.64s; }.thinking-signal i:nth-child(4) { animation-delay:-.46s; }.thinking-signal i:nth-child(5) { animation-delay:-.28s; }.thinking-signal i:nth-child(6) { animation-delay:-.1s; }
+    details { color:#657079; font:500 .7rem/1.4 ui-monospace,SFMono-Regular,Consolas,monospace; }
+    summary { cursor:pointer; padding:4px 0; }
+    pre { white-space:pre-wrap; padding:12px; border:1px solid var(--line-soft); background:#0b0e10; color:#84909a; }
+
+    html[data-theme="green"] { --bg:#06100a; --panel:#0c1710; --panel-2:#101d15; --line:#263b2d; --line-soft:#19291f; --text:#e4eee7; --muted:#84998b; --accent:#74d39a; --accent-strong:#a7e8c1; }
+    html[data-theme="green"] body::before { background-image:linear-gradient(#70d99a0a 1px,transparent 1px),linear-gradient(90deg,#70d99a08 1px,transparent 1px); }
+    html[data-theme="green"] header,html[data-theme="green"] .composer { background:#08110cec; border-color:#2b4233; }
+    html[data-theme="green"] .turn.user { background:#11251a; border-color:#31553d; }
+    html[data-theme="green"] .turn.assistant,html[data-theme="green"] .attachment { background:#0c1710; border-color:#2a4031; }
+    html[data-theme="green"] .replay,html[data-theme="green"] .utility-control,html[data-theme="green"] .mode-switch button[aria-selected="true"],html[data-theme="green"] .theme-options button[aria-pressed="true"] { background:#122219; border-color:#395442; color:#c8dbce; }
+    html[data-theme="green"] .attachment-preview,html[data-theme="green"] .mode-switch,html[data-theme="green"] .performance-strip,html[data-theme="green"] .theme-control,html[data-theme="green"] .mic-policy { background:#050d08; border-color:#203329; }
+    html[data-theme="green"] input,html[data-theme="green"] select,html[data-theme="green"] .device-panel,html[data-theme="green"] pre { background:#07100a; border-color:#2a4031; }
+    html[data-theme="green"] #send { background:#75c995; border-color:#91dfad; color:#07110b; }
+    html[data-theme="green"] #mic:not(.recording):not(.call-active):not(.wake-active):not(.muted) { background:#10251a; border-color:#4e8964; }
+    html[data-theme="green"] #mic:not(.recording):not(.call-active):not(.wake-active):not(.muted):hover { background:#173321; border-color:#72bd8c; }
+    html[data-theme="green"] .context-track::after { background:#74d39a; }
+
+    html[data-theme="red"] { --bg:#120707; --panel:#1b0e0e; --panel-2:#211313; --line:#442a2a; --line-soft:#301b1b; --text:#f2e7e5; --muted:#a58c89; --accent:#e1786f; --accent-strong:#f0aaa3; --danger:#ff756e; }
+    html[data-theme="red"] body::before { background-image:linear-gradient(#ef786f0b 1px,transparent 1px),linear-gradient(90deg,#ef786f08 1px,transparent 1px); }
+    html[data-theme="red"] header,html[data-theme="red"] .composer { background:#140909ed; border-color:#4a2e2e; }
+    html[data-theme="red"] .turn.user { background:#321515; border-color:#6c3734; }
+    html[data-theme="red"] .turn.assistant,html[data-theme="red"] .attachment { background:#1b0e0e; border-color:#4a2e2e; }
+    html[data-theme="red"] .replay,html[data-theme="red"] .utility-control,html[data-theme="red"] .mode-switch button[aria-selected="true"],html[data-theme="red"] .theme-options button[aria-pressed="true"] { background:#2b1616; border-color:#62403e; color:#e8cfcc; }
+    html[data-theme="red"] .attachment-preview,html[data-theme="red"] .mode-switch,html[data-theme="red"] .performance-strip,html[data-theme="red"] .theme-control,html[data-theme="red"] .mic-policy { background:#100606; border-color:#3a2424; }
+    html[data-theme="red"] input,html[data-theme="red"] select,html[data-theme="red"] .device-panel,html[data-theme="red"] pre { background:#130909; border-color:#4a2e2e; }
+    html[data-theme="red"] #send { background:#dc776f; border-color:#ef9b94; color:#190707; }
+    html[data-theme="red"] #mic:not(.recording):not(.call-active):not(.wake-active):not(.muted) { background:#351717; border-color:#8b4b47; }
+    html[data-theme="red"] #mic:not(.recording):not(.call-active):not(.wake-active):not(.muted):hover { background:#421c1b; border-color:#b15d57; }
+    html[data-theme="red"] .context-track::after { background:#e1786f; }
+
+    html[data-theme="light"] { color-scheme:light; --bg:#e9e8e3; --panel:#f7f6f2; --panel-2:#efeee9; --line:#c8c8c1; --line-soft:#d8d7d1; --text:#171b1e; --muted:#687078; --accent:#2d6f95; --accent-strong:#1f5879; --danger:#aa3636; }
+    html[data-theme="light"] body::before { opacity:.45; background-image:linear-gradient(#00000009 1px,transparent 1px),linear-gradient(90deg,#00000007 1px,transparent 1px); }
+    html[data-theme="light"] header,html[data-theme="light"] .composer { background:#f5f4f0ed; border-color:#bfc0ba; box-shadow:0 18px 55px #48483f20; }
+    html[data-theme="light"] .pill { color:#5d666d; } html[data-theme="light"] .pill.ok { color:#3e5e50; }
+    html[data-theme="light"] .empty { color:#626a70; }
+    html[data-theme="light"] .turn.user { background:#d9e8f0; border-color:#9bb8c8; color:#15252e; }
+    html[data-theme="light"] .turn.assistant { background:#f7f6f2; border-color:#c7c7c0; border-left-color:#818b91; }
+    html[data-theme="light"] .role,html[data-theme="light"] .turn.user .role { color:#60717b; }
+    html[data-theme="light"] .replay,html[data-theme="light"] .utility-control { background:#e9e9e4; border-color:#b9bbb6; color:#4e5a62; }
+    html[data-theme="light"] .replay:hover,html[data-theme="light"] .utility-control:hover:not(:disabled) { background:#deded8; border-color:#919994; color:#182126; }
+    html[data-theme="light"] .attachment { background:#f2f2ed; border-color:#c2c4bf; }
+    html[data-theme="light"] .attachment-preview { background:#e1e1dc; }
+    html[data-theme="light"] .attachment-info { border-color:#d0d0ca; }
+    html[data-theme="light"] .attachment-name { color:#242a2e; } html[data-theme="light"] .attachment-meta { color:#70767a; }
+    html[data-theme="light"] .attachment-actions a { border-color:#aeb2af; color:#46565f; }
+    html[data-theme="light"] .mode-switch,html[data-theme="light"] .performance-strip,html[data-theme="light"] .theme-control,html[data-theme="light"] .mic-policy { background:#e5e5df; border-color:#c3c4be; }
+    html[data-theme="light"] .mode-switch button,html[data-theme="light"] .theme-options button,html[data-theme="light"] .mic-policy button { color:#687078; }
+    html[data-theme="light"] .mode-switch button[aria-selected="true"],html[data-theme="light"] .theme-options button[aria-pressed="true"],html[data-theme="light"] .mic-policy button[aria-selected="true"] { background:#f7f6f2; border-color:#afb3b0; color:#222a2f; }
+    html[data-theme="light"] .metric { border-color:#c9cac4; } html[data-theme="light"] .metric-label,html[data-theme="light"] .theme-control > span { color:#687078; }
+    html[data-theme="light"] .metric-reading strong { color:#38444b; } html[data-theme="light"] .metric-reading small { color:#71787c; }
+    html[data-theme="light"] .context-track { background:#c9cbc7; }
+    html[data-theme="light"] input,html[data-theme="light"] select,html[data-theme="light"] .device-panel,html[data-theme="light"] pre { background:#fbfaf7; border-color:#bfc2bf; color:#161b1f; }
+    html[data-theme="light"] input::placeholder { color:#8a8f91; }
+    html[data-theme="light"] #send { background:#427fa2; border-color:#316d8e; color:white; }
+    html[data-theme="light"] #mic:not(.recording):not(.call-active):not(.wake-active):not(.muted) { background:#dbeaf2; border-color:#709cb4; }
+    html[data-theme="light"] #micLabel { color:#1f3039; } html[data-theme="light"] #mic .control-kicker { color:#477890; }
+    html[data-theme="light"] .activity-row,html[data-theme="light"] details { color:#626d73; }
+    html[data-theme="light"] .composer > .activity-row { border-color:#d2d2cc; }
+    @keyframes signal { 0%,100% { height:4px; opacity:.35; } 42% { height:15px; opacity:1; } }
+    @keyframes call-pulse { 0%,100% { opacity:.55; transform:scale(.92); } 45% { opacity:1; transform:scale(1); } }
+    @keyframes turn-in { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:none; } }
+    @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; } }
+    @media (max-width:620px) { main { padding:10px 10px calc(14px + env(safe-area-inset-bottom)); } header { grid-template-columns:1fr; align-items:start; gap:13px; padding:13px; } .status { width:100%; grid-template-columns:repeat(2,1fr); justify-content:start; } .turn { width:95%; } .turn.assistant { padding-right:15px; padding-bottom:52px; } .voice-row { grid-template-columns:62px 1fr 62px; } #mic { grid-template-columns:28px 1fr; column-gap:9px; padding:11px 13px; } #mic .mic-icon { width:25px; height:25px; } .utility-control { min-height:72px; } .attachment-info { grid-template-columns:24px minmax(0,1fr); } .attachment-actions { grid-column:1/3; } .attachment-actions a { flex:1; justify-content:center; } .theme-control { grid-template-columns:1fr; gap:5px; padding:7px; } .theme-control > span { padding-left:3px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div><div class="brand-kicker">Private voice system</div><h1>Hermes Live Chat</h1></div>
+    <div class="status">
+      <span id="hermes" class="pill">Hermes…</span>
+      <span id="llm" class="pill">Model…</span>
+      <span id="whisper" class="pill">Canary…</span>
+      <span id="kokoro" class="pill">Kokoro…</span>
+    </div>
+  </header>
+
+  <section id="conversation"><div class="empty">Tap the microphone to start, then tap again to send. You can also hold it, use Spacebar, or type below.</div></section>
+
+  <section class="composer">
+    <div class="activity-row"><span id="thinkingIndicator" class="thinking-signal" hidden aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span><div id="activity" aria-live="polite">Tap to start · tap again to send</div></div>
+    <div class="text-row">
+      <input id="text" autocomplete="off" placeholder="Message Hermes…" aria-label="Message">
+      <button id="send">Send</button>
+    </div>
+    <div class="voice-row">
+      <button id="stop" class="utility-control" title="Stop response" aria-label="Stop response" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="6" y="6" width="12" height="12" fill="currentColor"/></svg><span>Stop</span></button>
+      <button id="mic" aria-label="Talk to Hermes" title="Tap or hold to talk"><svg class="mic-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="8" y="3" width="8" height="12" rx="4" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M8.5 21h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="square"/></svg><span class="control-kicker">Voice input</span><span id="micLabel">Tap to talk</span></button>
+      <button id="micSettings" class="utility-control" aria-label="Choose microphone" title="Choose microphone"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M10 14v6" stroke="currentColor" stroke-width="1.7" stroke-linecap="square"/></svg><span>Input</span></button>
+    </div>
+    <div id="micPolicy" class="mic-policy" role="tablist" aria-label="Live call microphone behavior" hidden>
+      <button id="openMicPolicy" role="tab" aria-selected="true">Open mic</button>
+      <button id="wakeMicPolicy" role="tab" aria-selected="false">Wake: Hermes</button>
+      <button id="muteMicPolicy" role="tab" aria-selected="false">Muted</button>
+    </div>
+    <div id="devicePanel" class="device-panel" hidden>
+      <label for="micSelect">Microphone input</label>
+      <select id="micSelect"><option value="">System default microphone</option></select>
+      <div id="activeMic">Active: system default microphone</div>
+    </div>
+    <div class="mode-switch" role="tablist" aria-label="Voice mode">
+      <button id="pushMode" role="tab" aria-selected="true">Push to talk</button>
+      <button id="callMode" role="tab" aria-selected="false">Live call</button>
+    </div>
+    <div id="performance" class="performance-strip" aria-label="Model performance" aria-live="polite">
+      <div id="speedMetric" class="metric"><span class="metric-label">Token speed</span><span class="metric-reading"><strong id="tokenSpeed">—</strong><small>tok/s</small></span></div>
+      <div class="metric"><span class="metric-label">Context</span><span class="metric-reading"><strong id="contextUsage">— / 1.05M</strong></span><div id="contextTrack" class="context-track"></div></div>
+      <div class="metric"><span class="metric-label">Output</span><span class="metric-reading"><strong id="outputTokens">—</strong><small>tokens</small></span></div>
+    </div>
+    <div class="theme-control">
+      <span>Theme</span>
+      <div class="theme-options" role="group" aria-label="Color theme">
+        <button type="button" data-theme-choice="graphite" aria-pressed="true">Graphite</button>
+        <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
+        <button type="button" data-theme-choice="green" aria-pressed="false">Green</button>
+        <button type="button" data-theme-choice="red" aria-pressed="false">Red</button>
+      </div>
+    </div>
+  </section>
+
+  <details><summary>Connection details</summary><pre id="config">Loading…</pre></details>
+  <audio id="audioPlayer" preload="auto" playsinline hidden></audio>
+</main>
+<script>
+const api = path => path;
+const sessionId = localStorage.sparkVoiceSession || crypto.randomUUID();
+localStorage.sparkVoiceSession = sessionId;
+const convo = document.querySelector('#conversation');
+const mic = document.querySelector('#mic');
+const micSettingsBtn = document.querySelector('#micSettings');
+const devicePanel = document.querySelector('#devicePanel');
+const micSelect = document.querySelector('#micSelect');
+const activeMic = document.querySelector('#activeMic');
+const audioPlayer = document.querySelector('#audioPlayer');
+const stopBtn = document.querySelector('#stop');
+const sendBtn = document.querySelector('#send');
+const textInput = document.querySelector('#text');
+const activity = document.querySelector('#activity');
+const thinkingIndicator = document.querySelector('#thinkingIndicator');
+const micLabel = document.querySelector('#micLabel');
+const pushModeBtn = document.querySelector('#pushMode');
+const callModeBtn = document.querySelector('#callMode');
+const micPolicy = document.querySelector('#micPolicy');
+const openMicPolicy = document.querySelector('#openMicPolicy');
+const wakeMicPolicy = document.querySelector('#wakeMicPolicy');
+const muteMicPolicy = document.querySelector('#muteMicPolicy');
+const speedMetric = document.querySelector('#speedMetric');
+const tokenSpeed = document.querySelector('#tokenSpeed');
+const contextUsage = document.querySelector('#contextUsage');
+const contextTrack = document.querySelector('#contextTrack');
+const outputTokens = document.querySelector('#outputTokens');
+const artifactCards = new Map();
+const themeButtons = [...document.querySelectorAll('[data-theme-choice]')];
+let recorder = null, mediaStream = null, recorded = [], recording = false, starting = false;
+let recordingMode = 'tap', recordingStartedAt = 0, stopWhenReady = false;
+let pressTimer = null, pressMode = 'idle';
+let requestController = null, currentAudio = audioPlayer, audioQueue = [], playing = false, responseInProgress = false;
+let selectedMicId = localStorage.sparkVoiceMic || '';
+let liveCall = false, callMuted = false, wakeMode = false, wakeArmed = false, wakeChecking = false, callStarting = false, callStream = null;
+let callContext = null, callAnalyser = null, callSamples = null, callFrame = null, callCapture = null;
+let callNoiseFloor = .008, callVoiceSince = 0, callLastVoice = 0;
+let metricsTimer = null, metricsBaseline = null, metricsStartedAt = 0, metricsPolling = false;
+
+function applyTheme(theme) {
+  const allowed = ['graphite', 'light', 'green', 'red'];
+  const selected = allowed.includes(theme) ? theme : 'graphite';
+  document.documentElement.dataset.theme = selected;
+  localStorage.hermesLiveTheme = selected;
+  document.querySelector('meta[name="theme-color"]').content = {graphite:'#0a0c0e',light:'#e9e8e3',green:'#06100a',red:'#120707'}[selected];
+  themeButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.themeChoice === selected)));
+}
+
+themeButtons.forEach(button => button.addEventListener('click', () => applyTheme(button.dataset.themeChoice)));
+applyTheme(document.documentElement.dataset.theme);
+
+function compactTokens(value) {
+  if (value >= 1000000) return `${(value / 1000000).toFixed(2)}M`;
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+  return String(Math.max(0, Math.round(value)));
+}
+
+async function fetchLlmMetrics() {
+  const response = await fetch(api('api/llm-metrics'));
+  if (!response.ok) throw new Error(response.statusText);
+  return response.json();
+}
+
+async function pollMetrics(final = false) {
+  if (!metricsBaseline || metricsPolling) return;
+  metricsPolling = true;
+  try {
+    const current = await fetchLlmMetrics();
+    const generated = Math.max(0, current.generation_tokens - metricsBaseline.generation_tokens);
+    const promptTotal = Math.max(0, current.prompt_tokens - metricsBaseline.prompt_tokens);
+    const requestCount = Math.max(1, current.prompt_requests - metricsBaseline.prompt_requests);
+    const prompt = promptTotal / requestCount;
+    const decode = Math.max(0, current.decode_seconds - metricsBaseline.decode_seconds);
+    const wallSeconds = Math.max(.001, (performance.now() - metricsStartedAt) / 1000);
+    const speed = generated > 0 ? generated / (decode > 0 ? decode : wallSeconds) : 0;
+    tokenSpeed.textContent = speed > 0 ? speed.toFixed(1) : final ? '0.0' : 'MEASURING';
+    outputTokens.textContent = generated > 0 ? compactTokens(generated) : final ? '0' : '—';
+    const limit = current.context_limit || metricsBaseline.context_limit || 0;
+    contextUsage.textContent = prompt > 0 ? `${compactTokens(prompt)} / ${compactTokens(limit)}` : `— / ${compactTokens(limit)}`;
+    contextTrack.style.setProperty('--context-use', limit ? `${Math.min(100, prompt / limit * 100)}%` : '0%');
+  } catch {
+    if (final) tokenSpeed.textContent = 'UNAVAILABLE';
+  } finally { metricsPolling = false; }
+}
+
+async function startMetricsTracking() {
+  clearInterval(metricsTimer); metricsTimer = null; metricsBaseline = null;
+  speedMetric.classList.add('live'); tokenSpeed.textContent = 'MEASURING'; outputTokens.textContent = '—';
+  try {
+    metricsBaseline = await fetchLlmMetrics(); metricsStartedAt = performance.now();
+    const limit = metricsBaseline.context_limit || 0;
+    contextUsage.textContent = `— / ${compactTokens(limit)}`; contextTrack.style.setProperty('--context-use', '0%');
+    metricsTimer = setInterval(() => pollMetrics(false), 600);
+  } catch { tokenSpeed.textContent = 'UNAVAILABLE'; speedMetric.classList.remove('live'); }
+}
+
+async function finishMetricsTracking() {
+  clearInterval(metricsTimer); metricsTimer = null;
+  while (metricsPolling) await new Promise(resolve => setTimeout(resolve, 20));
+  await pollMetrics(true); speedMetric.classList.remove('live');
+}
+
+function stopMetricsTracking() {
+  clearInterval(metricsTimer); metricsTimer = null; speedMetric.classList.remove('live');
+}
+
+async function loadMicrophones(requestPermission = false) {
+  try {
+    let devices = await navigator.mediaDevices.enumerateDevices();
+    let inputs = devices.filter(device => device.kind === 'audioinput');
+    if (requestPermission && (!inputs.length || inputs.every(device => !device.label))) {
+      const permissionStream = await navigator.mediaDevices.getUserMedia({audio:true});
+      permissionStream.getTracks().forEach(track => track.stop());
+      devices = await navigator.mediaDevices.enumerateDevices();
+      inputs = devices.filter(device => device.kind === 'audioinput');
+    }
+    micSelect.innerHTML = '<option value="">System default microphone</option>';
+    inputs.forEach((device, index) => {
+      const option = document.createElement('option');
+      option.value = device.deviceId;
+      option.textContent = device.label || `Microphone ${index + 1}`;
+      micSelect.appendChild(option);
+    });
+    if (selectedMicId && inputs.some(device => device.deviceId === selectedMicId)) micSelect.value = selectedMicId;
+    else if (selectedMicId) { selectedMicId = ''; localStorage.removeItem('sparkVoiceMic'); }
+    const chosen = inputs.find(device => device.deviceId === selectedMicId);
+    activeMic.textContent = `Selected: ${chosen?.label || 'system default microphone'}`;
+  } catch (error) {
+    activeMic.textContent = `Microphone list unavailable: ${error.message}`;
+  }
+}
+
+async function openSelectedMicrophone() {
+  const audio = {echoCancellation:true, noiseSuppression:true};
+  if (selectedMicId) audio.deviceId = {exact:selectedMicId};
+  try {
+    return await navigator.mediaDevices.getUserMedia({audio});
+  } catch (error) {
+    if (!selectedMicId) throw error;
+    selectedMicId = ''; localStorage.removeItem('sparkVoiceMic'); micSelect.value = '';
+    activeMic.textContent = 'Selected microphone unavailable; using system default.';
+    return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}});
+  }
+}
+
+function setActivity(text) {
+  activity.textContent = text;
+  const busy = /thinking|working|preparing|transcribing/i.test(text);
+  thinkingIndicator.hidden = !busy;
+  thinkingIndicator.setAttribute('aria-hidden', String(!busy));
+}
+
+function callCanListen() {
+  return liveCall && !callMuted && !wakeChecking && !responseInProgress && !playing && !audioQueue.length;
+}
+
+function callReadyText() {
+  if (callMuted) return 'Microphone muted';
+  if (wakeMode) return wakeArmed ? 'Hermes is listening · say your request' : 'Wake mode · say “Hermes”';
+  return 'Microphone live · start speaking';
+}
+
+function updateModeUI() {
+  pushModeBtn.setAttribute('aria-selected', String(!liveCall));
+  callModeBtn.setAttribute('aria-selected', String(liveCall));
+  micPolicy.hidden = !liveCall;
+  openMicPolicy.setAttribute('aria-selected', String(liveCall && !callMuted && !wakeMode));
+  wakeMicPolicy.setAttribute('aria-selected', String(liveCall && !callMuted && wakeMode));
+  muteMicPolicy.setAttribute('aria-selected', String(liveCall && callMuted));
+  mic.classList.toggle('call-active', liveCall && !callMuted && !wakeMode);
+  mic.classList.toggle('wake-active', liveCall && !callMuted && wakeMode);
+  mic.classList.toggle('muted', liveCall && callMuted);
+  if (liveCall) {
+    mic.setAttribute('aria-label', callMuted ? 'Unmute microphone' : 'Mute microphone');
+    mic.title = callMuted ? 'Unmute microphone' : 'Mute microphone';
+    mic.querySelector('.control-kicker').textContent = wakeMode && !callMuted ? 'Wake mode' : 'Live call';
+    micLabel.textContent = callMuted ? 'Unmute' : wakeMode ? 'Say “Hermes”' : 'Mute microphone';
+  } else {
+    mic.setAttribute('aria-label', 'Talk to Hermes');
+    mic.title = 'Tap or hold to talk';
+    mic.querySelector('.control-kicker').textContent = 'Voice input';
+    micLabel.textContent = 'Tap to talk';
+  }
+}
+
+function finishCallCapture(send = false) {
+  const capture = callCapture;
+  if (!capture || capture.recorder.state === 'inactive') return;
+  callCapture = null;
+  capture.send = send;
+  capture.recorder.stop();
+}
+
+function startCallCapture() {
+  if (!callCanListen() || !callStream || callCapture) return;
+  const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '';
+  const capture = {
+    recorder: new MediaRecorder(callStream, mime ? {mimeType:mime} : undefined),
+    chunks: [], started: Date.now(), speech: false, send: false
+  };
+  capture.recorder.ondataavailable = event => { if (event.data.size) capture.chunks.push(event.data); };
+  capture.recorder.onstop = () => {
+    if (capture.send && capture.chunks.length) {
+      const blob = new Blob(capture.chunks, {type:capture.recorder.mimeType || 'audio/webm'});
+      submitCallRecording(blob);
+    } else if (callCanListen()) {
+      startCallCapture();
+    }
+  };
+  callCapture = capture;
+  capture.recorder.start(100);
+}
+
+function parseWakeTranscript(transcript, alreadyArmed = false) {
+  const clean = transcript.trim();
+  if (alreadyArmed) return {matched:true, command:clean, arm:false};
+  const normalized = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const match = /\bhermes\b/i.exec(normalized);
+  if (!match) return {matched:false, command:'', arm:false};
+  const command = clean.slice(match.index + match[0].length).replace(/^[\s,.:;!?—-]+/, '').trim();
+  return {matched:true, command, arm:!command};
+}
+
+async function submitCallRecording(blob) {
+  if (!liveCall || callMuted || !blob.size) { if (callCanListen()) startCallCapture(); return; }
+  if (wakeMode) {
+    wakeChecking = true;
+    setActivity(wakeArmed ? 'Listening for your request…' : 'Checking for “Hermes”…');
+    try {
+      const form = new FormData(); form.append('audio', blob, 'wake-check.webm');
+      const response = await fetch(api('api/transcribe'), {method:'POST', body:form});
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        if (response.status !== 422) throw new Error(error.detail || response.statusText);
+        setActivity('Wake mode · say “Hermes”');
+        return;
+      }
+      const transcript = (await response.json()).transcript.trim();
+      const parsed = parseWakeTranscript(transcript, wakeArmed);
+      wakeArmed = parsed.arm;
+      if (!parsed.matched) { setActivity('Wake mode · waiting for “Hermes”'); return; }
+      if (parsed.arm) { setActivity('Hermes is listening · say your request'); return; }
+      const command = parsed.command;
+      wakeChecking = false;
+      setActivity('Hermes heard you…');
+      await runRequest('api/chat-stream', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({message:command, session_id:sessionId, profile_id:'hermes_current', speak:true})
+      });
+      return;
+    } catch (error) {
+      setActivity(`Wake mode error: ${error.message}`);
+    } finally {
+      wakeChecking = false;
+      if (callCanListen()) startCallCapture();
+    }
+    return;
+  }
+  setActivity('Transcribing your voice…');
+  const form = new FormData();
+  form.append('audio', blob, 'live-call.webm'); form.append('session_id', sessionId);
+  form.append('profile_id', 'hermes_current'); form.append('speak', 'true');
+  await runRequest('api/converse-stream', {method:'POST', body:form});
+}
+
+function monitorCallAudio() {
+  cancelAnimationFrame(callFrame);
+  const tick = () => {
+    callFrame = requestAnimationFrame(tick);
+    if (!liveCall || !callAnalyser) return;
+    const canListen = callCanListen();
+    callStream?.getAudioTracks().forEach(track => { track.enabled = canListen; });
+    if (!canListen) { finishCallCapture(false); callVoiceSince = 0; return; }
+    startCallCapture();
+    callAnalyser.getFloatTimeDomainData(callSamples);
+    let energy = 0;
+    for (const sample of callSamples) energy += sample * sample;
+    const rms = Math.sqrt(energy / callSamples.length);
+    const now = Date.now(), threshold = Math.max(.018, callNoiseFloor * 2.8);
+    if (!callCapture?.speech) callNoiseFloor = callNoiseFloor * .985 + Math.min(rms, .025) * .015;
+    if (rms > threshold) {
+      callVoiceSince ||= now;
+      callLastVoice = now;
+      if (callCapture && now - callVoiceSince > 100) {
+        if (!callCapture.speech) setActivity('Listening… pause when you are finished');
+        callCapture.speech = true;
+      }
+    } else {
+      callVoiceSince = 0;
+    }
+    if (callCapture?.speech && now - callLastVoice > 850) {
+      finishCallCapture(true);
+      setActivity('Transcribing your voice…');
+    } else if (callCapture && !callCapture.speech && now - callCapture.started > 12000) {
+      finishCallCapture(false);
+    } else if (callCapture?.speech && now - callCapture.started > 32000) {
+      finishCallCapture(true);
+    }
+  };
+  tick();
+}
+
+async function startLiveCall() {
+  if (liveCall || callStarting) return;
+  callStarting = true;
+  try {
+    callStream = await openSelectedMicrophone();
+    callContext = new (window.AudioContext || window.webkitAudioContext)();
+    await callContext.resume();
+    callAnalyser = callContext.createAnalyser(); callAnalyser.fftSize = 1024; callAnalyser.smoothingTimeConstant = .35;
+    callSamples = new Float32Array(callAnalyser.fftSize);
+    callContext.createMediaStreamSource(callStream).connect(callAnalyser);
+    liveCall = true; callMuted = false; wakeMode = false; wakeArmed = false; callNoiseFloor = .008;
+    updateModeUI(); monitorCallAudio(); startCallCapture();
+    setActivity('Live call connected · start speaking');
+  } catch (error) {
+    liveCall = false; updateModeUI(); setActivity(`Microphone error: ${error.message}`);
+  } finally { callStarting = false; }
+}
+
+function stopLiveCall() {
+  liveCall = false; callMuted = false; wakeMode = false; wakeArmed = false; wakeChecking = false;
+  finishCallCapture(false); cancelAnimationFrame(callFrame); callFrame = null;
+  callStream?.getTracks().forEach(track => track.stop()); callStream = null;
+  callContext?.close().catch(() => {}); callContext = null; callAnalyser = null;
+  updateModeUI(); setActivity('Tap to start · tap again to send');
+}
+
+function toggleCallMute() {
+  if (!liveCall) return;
+  callMuted = !callMuted;
+  if (callMuted) finishCallCapture(false);
+  else startCallCapture();
+  updateModeUI();
+  setActivity(callReadyText());
+}
+
+function setCallPolicy(mode) {
+  if (!liveCall) return;
+  finishCallCapture(false); wakeArmed = false;
+  callMuted = mode === 'muted';
+  if (!callMuted) wakeMode = mode === 'wake';
+  updateModeUI();
+  if (callCanListen()) startCallCapture();
+  setActivity(callReadyText());
+}
+function clearEmpty() { document.querySelector('.empty')?.remove(); }
+function addTurn(role, text = '', replayable = true) {
+  clearEmpty();
+  const el = document.createElement('div');
+  el.className = `turn ${role}`;
+  const label = document.createElement('div'); label.className = 'role'; label.textContent = role === 'user' ? 'You' : 'Hermes · Active model';
+  const body = document.createElement('div'); body.textContent = text;
+  body._audioSources = [];
+  el.append(label, body);
+  if (role === 'assistant' && replayable) {
+    const replay = document.createElement('button');
+    replay.className = 'replay'; replay.title = 'Read this message aloud';
+    replay.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 10v4h3l4 3V7L8 10H5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M15 9.2c1.5 1.5 1.5 4.1 0 5.6M17.6 6.7c2.9 2.9 2.9 7.7 0 10.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="square"/></svg><span>Replay</span>';
+    replay.setAttribute('aria-label', 'Read this message aloud');
+    replay.onclick = () => replayTurn(body);
+    el.append(replay);
+  }
+  convo.append(el); convo.scrollTop = convo.scrollHeight;
+  return body;
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function addArtifact(body, artifact) {
+  const artifactKey = artifact.url.split('?')[0];
+  artifactCards.get(artifactKey)?.remove();
+  const turn = body.parentElement;
+  turn.classList.add('has-attachment');
+  let attachments = turn.querySelector('.attachments');
+  if (!attachments) { attachments = document.createElement('div'); attachments.className = 'attachments'; turn.append(attachments); }
+  const card = document.createElement('div'); card.className = `attachment ${artifact.kind}`;
+  if (artifact.kind === 'image') {
+    const preview = document.createElement('a'); preview.className = 'attachment-preview'; preview.href = artifact.url; preview.target = '_blank'; preview.rel = 'noopener';
+    const img = document.createElement('img'); img.src = artifact.url; img.alt = artifact.name; img.loading = 'lazy';
+    img.onerror = () => { preview.classList.add('failed'); preview.textContent = 'Preview unavailable · use Open or Download'; };
+    preview.append(img); card.append(preview);
+  } else if (artifact.kind === 'audio') {
+    const player = document.createElement('audio'); player.controls = true; player.preload = 'metadata'; player.src = artifact.url;
+    player.onerror = () => { const fallback = document.createElement('div'); fallback.className = 'media-fallback'; fallback.textContent = 'Audio preview unavailable · use Open or Download'; player.replaceWith(fallback); };
+    card.append(player);
+  } else if (artifact.kind === 'video') {
+    const player = document.createElement('video'); player.controls = true; player.preload = 'metadata'; player.src = artifact.url;
+    player.onerror = () => { const fallback = document.createElement('div'); fallback.className = 'media-fallback'; fallback.textContent = 'Video preview unavailable · use Open or Download'; player.replaceWith(fallback); };
+    card.append(player);
+  }
+  const info = document.createElement('div'); info.className = 'attachment-info';
+  const icon = document.createElement('div'); icon.className = 'attachment-icon';
+  icon.innerHTML = '<svg viewBox="0 0 24 28" fill="none" aria-hidden="true"><path d="M4 1h10l6 6v20H4V1Z" stroke="currentColor" stroke-width="1.5"/><path d="M14 1v6h6M8 13h8M8 17h8M8 21h5" stroke="currentColor" stroke-width="1.5"/></svg>';
+  const identity = document.createElement('div');
+  const name = document.createElement('div'); name.className = 'attachment-name'; name.textContent = artifact.name; name.title = artifact.name;
+  const meta = document.createElement('div'); meta.className = 'attachment-meta'; meta.textContent = `${artifact.mime} · ${formatBytes(artifact.size)}`;
+  identity.append(name, meta);
+  const actions = document.createElement('div'); actions.className = 'attachment-actions';
+  const open = document.createElement('a'); open.href = artifact.url; open.target = '_blank'; open.rel = 'noopener'; open.textContent = artifact.kind === 'audio' ? 'Open' : 'Preview';
+  const download = document.createElement('a'); download.href = artifact.url; download.download = artifact.name; download.textContent = 'Download';
+  actions.append(open, download); info.append(icon, identity, actions); card.append(info); attachments.append(card); artifactCards.set(artifactKey, card);
+  convo.scrollTop = convo.scrollHeight;
+}
+
+async function loadExistingArtifacts() {
+  try {
+    const artifacts = await fetch(api(`api/artifacts/${encodeURIComponent(sessionId)}`)).then(response => response.ok ? response.json() : []);
+    if (!artifacts.length) return;
+    const body = addTurn('assistant', `${artifacts.length} saved ${artifacts.length === 1 ? 'file is' : 'files are'} available from this chat.`, false);
+    body.parentElement.querySelector('.role').textContent = 'Hermes · Saved files';
+    artifacts.forEach(artifact => addArtifact(body, artifact));
+  } catch { /* Attachments created during new turns still work if history loading fails. */ }
+}
+
+async function replayTurn(body) {
+  const sources = [...(body._audioSources || [])];
+  clearAudio();
+  if (sources.length) {
+    sources.forEach(enqueueAudio);
+    setActivity('Reading message aloud…');
+    return;
+  }
+  try {
+    setActivity('Preparing replay…');
+    const response = await fetch(api('api/tts'), {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text:body.textContent})
+    });
+    if (!response.ok) throw new Error(response.statusText);
+    const data = await response.json(); body._audioSources = [data.audio]; enqueueAudio(data.audio);
+  } catch (error) { setActivity(`Replay error: ${error.message}`); }
+}
+
+function clearAudio() {
+  audioQueue = []; playing = false;
+  currentAudio.pause(); currentAudio.removeAttribute('src'); currentAudio.load();
+}
+
+async function cancelResponse() {
+  responseInProgress = false;
+  stopMetricsTracking();
+  clearAudio();
+  requestController?.abort(); requestController = null;
+  fetch(api(`api/cancel/${encodeURIComponent(sessionId)}`), { method: 'POST' }).catch(() => {});
+  stopBtn.disabled = true;
+  setActivity(liveCall ? callReadyText() : 'Stopped. Hold to talk.');
+}
+
+function enqueueAudio(src) { audioQueue.push(src); stopBtn.disabled = false; playNext(); }
+async function playNext() {
+  if (playing || !audioQueue.length) {
+    if (!playing && !audioQueue.length) {
+      stopBtn.disabled = true;
+      setActivity(responseInProgress ? 'Hermes is working…' : liveCall ? callReadyText() : 'Ready. Hold to talk or type a message.');
+    }
+    return;
+  }
+  playing = true; currentAudio.src = audioQueue.shift();
+  currentAudio.onended = currentAudio.onerror = () => { playing = false; playNext(); };
+  try { await currentAudio.play(); } catch { playing = false; playNext(); }
+}
+
+async function consumeStream(response) {
+  if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.detail || response.statusText); }
+  const reader = response.body.getReader(), decoder = new TextDecoder();
+  let buffer = '', assistantBody = null;
+  while (true) {
+    const {value, done} = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, {stream:true});
+    const lines = buffer.split('\n'); buffer = lines.pop();
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const event = JSON.parse(line);
+      if (event.type === 'user') { addTurn('user', event.text); setActivity('Hermes is thinking…'); }
+      else if (event.type === 'ack') {
+        const ackBody = addTurn('assistant', event.text); ackBody._audioSources.push(event.audio);
+        enqueueAudio(event.audio); setActivity('Hermes is working…');
+      }
+      else if (event.type === 'assistant_start') assistantBody = addTurn('assistant');
+      else if (event.type === 'assistant_delta') { assistantBody ||= addTurn('assistant'); assistantBody.textContent += event.text; convo.scrollTop = convo.scrollHeight; }
+      else if (event.type === 'assistant_done') { await finishMetricsTracking(); setActivity('Preparing speech…'); }
+      else if (event.type === 'artifact') { assistantBody ||= addTurn('assistant'); addArtifact(assistantBody, event); }
+      else if (event.type === 'audio') {
+        if (assistantBody) assistantBody._audioSources.push(event.audio);
+        enqueueAudio(event.audio); setActivity('Speaking…');
+      }
+      else if (event.type === 'done') setActivity(playing || audioQueue.length ? 'Speaking…' : liveCall ? callReadyText() : 'Ready.');
+      else if (event.type === 'error') throw new Error(event.message);
+    }
+  }
+}
+
+async function runRequest(url, options) {
+  await cancelResponse();
+  responseInProgress = true;
+  await startMetricsTracking();
+  requestController = new AbortController(); options.signal = requestController.signal;
+  stopBtn.disabled = false;
+  try { await consumeStream(await fetch(api(url), options)); }
+  catch (error) {
+    if (error.name !== 'AbortError') {
+      if (error.message.includes('No speech detected')) {
+        setActivity('I didn’t hear speech. Tap the mic, speak, then tap it again.');
+      } else {
+        setActivity(`Error: ${error.message}`); addTurn('assistant', `Error: ${error.message}`);
+      }
+    }
+  }
+  finally {
+    if (metricsTimer) await finishMetricsTracking();
+    responseInProgress = false; requestController = null;
+    if (!playing && !audioQueue.length) { stopBtn.disabled = true; setActivity(liveCall ? callReadyText() : 'Ready. Hold to talk or type a message.'); }
+  }
+}
+
+async function sendText() {
+  const message = textInput.value.trim(); if (!message) return;
+  textInput.value = '';
+  runRequest('api/chat-stream', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({message, session_id:sessionId, profile_id:'hermes_current', speak:true})
+  });
+}
+
+async function beginRecording(mode = 'tap', event = null) {
+  event?.preventDefault(); if (liveCall || recording || starting) return;
+  starting = true; stopWhenReady = false; recordingMode = mode;
+  await cancelResponse();
+  try {
+    mediaStream = await openSelectedMicrophone();
+    const activeId = mediaStream.getAudioTracks()[0]?.getSettings().deviceId;
+    const activeOption = [...micSelect.options].find(option => option.value === activeId);
+    activeMic.textContent = `Active: ${activeOption?.textContent || 'system default microphone'}`;
+    recorded = [];
+    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '';
+    recorder = new MediaRecorder(mediaStream, mime ? {mimeType:mime} : undefined);
+    recorder.ondataavailable = e => { if (e.data.size) recorded.push(e.data); };
+    recorder.onstop = sendRecording;
+    recorder.start(100); starting = false; recording = true; recordingStartedAt = Date.now();
+    mic.classList.add('recording'); micLabel.textContent = 'Listening';
+    setActivity(mode === 'hold' ? 'Listening… release to send' : 'Listening… tap the mic again to send');
+    if (stopWhenReady) endRecording();
+  } catch (error) { starting = false; setActivity(`Microphone error: ${error.message}`); }
+}
+
+function endRecording(event) {
+  event?.preventDefault();
+  if (starting) { stopWhenReady = true; return; }
+  if (!recording) return;
+  recording = false; mic.classList.remove('recording'); micLabel.textContent = 'Tap to talk'; setActivity('Transcribing…');
+  recorder.stop(); mediaStream?.getTracks().forEach(track => track.stop());
+}
+
+async function sendRecording() {
+  const blob = new Blob(recorded, {type: recorder.mimeType || 'audio/webm'});
+  if (Date.now() - recordingStartedAt < 650) {
+    setActivity('Recording was too short. Tap the mic, speak, then tap it again.');
+    return;
+  }
+  if (!blob.size) { setActivity('No audio captured.'); return; }
+  const form = new FormData();
+  form.append('audio', blob, 'utterance.webm'); form.append('session_id', sessionId);
+  form.append('profile_id', 'hermes_current'); form.append('speak', 'true');
+  runRequest('api/converse-stream', {method:'POST', body:form});
+}
+
+mic.addEventListener('pointerdown', event => {
+  event.preventDefault();
+  if (liveCall) { toggleCallMute(); pressMode = 'idle'; return; }
+  if (recording || starting) { pressMode = 'stop'; return; }
+  pressMode = 'pending';
+  pressTimer = setTimeout(() => { pressMode = 'hold'; beginRecording('hold'); }, 350);
+});
+window.addEventListener('pointerup', event => {
+  if (liveCall) return;
+  if (pressMode === 'pending') { clearTimeout(pressTimer); pressMode = 'tap'; beginRecording('tap', event); }
+  else if (pressMode === 'hold' || pressMode === 'stop') endRecording(event);
+  pressMode = 'idle';
+});
+window.addEventListener('pointercancel', event => {
+  if (liveCall) return;
+  clearTimeout(pressTimer); if (pressMode === 'hold') endRecording(event); pressMode = 'idle';
+});
+document.addEventListener('keydown', e => { if (!liveCall && e.code === 'Space' && !e.repeat && document.activeElement !== textInput) beginRecording('hold', e); });
+document.addEventListener('keyup', e => { if (!liveCall && e.code === 'Space' && document.activeElement !== textInput) endRecording(e); });
+stopBtn.onclick = cancelResponse; sendBtn.onclick = sendText;
+pushModeBtn.onclick = () => { if (liveCall || callStarting) stopLiveCall(); };
+callModeBtn.onclick = startLiveCall;
+openMicPolicy.onclick = () => setCallPolicy('open');
+wakeMicPolicy.onclick = () => setCallPolicy('wake');
+muteMicPolicy.onclick = () => setCallPolicy('muted');
+micSettingsBtn.onclick = async () => {
+  devicePanel.hidden = !devicePanel.hidden;
+  if (!devicePanel.hidden) await loadMicrophones(true);
+};
+micSelect.onchange = async () => {
+  selectedMicId = micSelect.value;
+  if (selectedMicId) localStorage.sparkVoiceMic = selectedMicId;
+  else localStorage.removeItem('sparkVoiceMic');
+  activeMic.textContent = `Selected: ${micSelect.options[micSelect.selectedIndex].textContent}`;
+  if (liveCall) { stopLiveCall(); await startLiveCall(); }
+};
+navigator.mediaDevices?.addEventListener?.('devicechange', () => loadMicrophones(false));
+textInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendText(); });
+
+async function loadStatus() {
+  try {
+    const health = await fetch(api('api/health')).then(r => r.json());
+    for (const key of ['hermes','llm','whisper','kokoro']) {
+      const el = document.querySelector(`#${key}`), ok = !!health[key];
+      el.className = `pill ${ok ? 'ok' : 'bad'}`;
+      const label = key === 'llm' ? 'Model' : key === 'whisper' ? (health.stt_engine?.startsWith('Canary') ? 'Canary' : 'Whisper') : key[0].toUpperCase()+key.slice(1);
+      el.textContent = `${label} ${ok ? 'ready' : 'offline'}`;
+    }
+    const config = await fetch(api('api/config')).then(r => r.json());
+    document.querySelector('#config').textContent = JSON.stringify({...config, session_id:sessionId}, null, 2);
+  } catch { setActivity('Voice server disconnected.'); }
+}
+loadStatus(); loadExistingArtifacts(); setInterval(loadStatus, 30000);
+</script>
+</body>
+</html>

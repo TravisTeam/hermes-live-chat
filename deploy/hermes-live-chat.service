@@ -1,0 +1,21 @@
+[Unit]
+Description=Hermes Live Chat
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/hermes-live-chat
+Environment=VOICE_AGENT_HERMES_PROFILE=default
+Environment=VOICE_AGENT_MODEL_SERVER_URL=http://127.0.0.1:8888
+Environment=VOICE_AGENT_KOKORO_URL=http://127.0.0.1:8880
+Environment=VOICE_AGENT_KOKORO_VOICE=af_heart
+Environment=VOICE_AGENT_STT_ENGINE=canary
+Environment=VOICE_AGENT_CANARY_LANGUAGE=en
+Environment=VOICE_AGENT_CANARY_THREADS=8
+ExecStart=%h/hermes-live-chat/.venv/bin/python -m uvicorn voice_agent.server:app --host 0.0.0.0 --port 8765
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
