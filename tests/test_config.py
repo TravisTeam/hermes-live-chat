@@ -7,3 +7,5 @@ def test_default_settings_are_local():
     assert s.kokoro_url.startswith('http://127.0.0.1')
     assert s.stt_engine == 'canary'
     assert s.canary_model.endswith('canary-180m-flash-Q8_0.gguf')
+    assert s.hermes_timeout_seconds == 1800
+    assert s.hermes_progress_interval_seconds == 60

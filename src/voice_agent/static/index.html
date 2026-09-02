@@ -116,6 +116,8 @@
     .activity-row { min-height:29px; margin-top:8px; display:flex; align-items:center; justify-content:center; gap:11px; color:#8a959e; }
     .composer > .activity-row { min-height:35px; margin:0 0 9px; border-bottom:1px solid #22292f; }
     #activity { font:500 .74rem/1.3 ui-monospace,SFMono-Regular,Consolas,monospace; }
+    .work-progress { margin-top:10px; padding-top:9px; border-top:1px solid var(--line-soft); color:var(--accent-strong); font:600 .68rem/1.45 ui-monospace,SFMono-Regular,Consolas,monospace; }
+    .work-progress::before { content:""; display:inline-block; width:6px; height:6px; margin-right:8px; background:var(--accent); animation:call-pulse 1.8s var(--ease) infinite; }
     .thinking-signal { height:15px; display:flex; align-items:center; gap:3px; }
     .thinking-signal i { display:block; width:3px; height:4px; background:var(--accent); transform-origin:center; animation:signal 1.05s var(--ease) infinite; }
     .thinking-signal i:nth-child(2) { animation-delay:-.82s; }.thinking-signal i:nth-child(3) { animation-delay:-.64s; }.thinking-signal i:nth-child(4) { animation-delay:-.46s; }.thinking-signal i:nth-child(5) { animation-delay:-.28s; }.thinking-signal i:nth-child(6) { animation-delay:-.1s; }
@@ -712,7 +714,7 @@ async function playNext() {
 async function consumeStream(response) {
   if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.detail || response.statusText); }
   const reader = response.body.getReader(), decoder = new TextDecoder();
-  let buffer = '', assistantBody = null;
+  let buffer = '', assistantBody = null, ackBody = null, progressNote = null, progressTurn = null;
   while (true) {
     const {value, done} = await reader.read();
     if (done) break;
@@ -723,10 +725,23 @@ async function consumeStream(response) {
       const event = JSON.parse(line);
       if (event.type === 'user') { addTurn('user', event.text); setActivity('Hermes is thinking…'); }
       else if (event.type === 'ack') {
-        const ackBody = addTurn('assistant', event.text); ackBody._audioSources.push(event.audio);
+        ackBody = addTurn('assistant', event.text); ackBody._audioSources.push(event.audio);
         enqueueAudio(event.audio); setActivity('Hermes is working…');
       }
-      else if (event.type === 'assistant_start') assistantBody = addTurn('assistant');
+      else if (event.type === 'progress') {
+        if (!progressNote) {
+          const host = ackBody || addTurn('assistant', '', false);
+          if (!ackBody) progressTurn = host.parentElement;
+          progressNote = document.createElement('div'); progressNote.className = 'work-progress'; host.append(progressNote);
+        }
+        progressNote.textContent = event.text;
+        if (event.audio) { (ackBody || progressNote.parentElement)._audioSources.push(event.audio); enqueueAudio(event.audio); }
+        setActivity(event.text); convo.scrollTop = convo.scrollHeight;
+      }
+      else if (event.type === 'assistant_start') {
+        progressNote?.remove(); progressTurn?.remove(); progressNote = null; progressTurn = null;
+        assistantBody = addTurn('assistant'); setActivity('Hermes finished · preparing response…');
+      }
       else if (event.type === 'assistant_delta') { assistantBody ||= addTurn('assistant'); assistantBody.textContent += event.text; convo.scrollTop = convo.scrollHeight; }
       else if (event.type === 'assistant_done') { await finishMetricsTracking(); setActivity('Preparing speech…'); }
       else if (event.type === 'artifact') { assistantBody ||= addTurn('assistant'); addArtifact(assistantBody, event); }

@@ -83,9 +83,10 @@ def run_hermes_turn(
     user_text: str,
     profile_id: str | None = None,
     session_id: str = "default",
-    timeout: int = 300,
+    timeout: int | None = None,
 ) -> tuple[str, VoiceProfile]:
     """Run a turn through a durable named Hermes conversation."""
+    timeout = timeout or get_settings().hermes_timeout_seconds
     profile = profile_by_id(profile_id)
     artifact_dir = artifact_session_dir(session_id)
     voice_prompt = (
@@ -94,7 +95,9 @@ def run_hermes_turn(
         "If the user asks you to create or provide an image, document, audio clip, code file, archive, "
         f"or any other downloadable artifact, save the finished file inside {artifact_dir}. "
         "Use a clear filename and mention it naturally in your reply. Files saved there are attached "
-        "to the chat automatically; do not paste data URLs or claim a file exists unless you created it.\n\n"
+        "to the chat automatically; do not paste data URLs or claim a file exists unless you created it. "
+        "For long tasks, continue working until the result is complete; the voice interface sends "
+        "status updates automatically, so do not stop early merely to report progress.\n\n"
         f"User said: {user_text}"
     )
     cmd = [

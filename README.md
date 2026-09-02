@@ -31,6 +31,7 @@ Tailscale provides the HTTPS origin required by mobile microphone permissions wh
 - Selectable browser microphone input
 - Local Canary 180M Flash transcription with faster-whisper fallback
 - Immediate spoken acknowledgement while longer tasks run
+- Visual and spoken “still working” updates during long tasks
 - Local Kokoro speech with queued playback, Stop, and Replay controls
 - Persistent Hermes conversations per browser
 - Typed chat alongside voice input
@@ -190,6 +191,8 @@ No frontend or Python changes are required. Providers without vLLM-compatible `/
 | Variable | Default | Purpose |
 |---|---|---|
 | `VOICE_AGENT_HERMES_PROFILE` | `default` | Hermes profile that owns routing, tools, and memory |
+| `VOICE_AGENT_HERMES_TIMEOUT_SECONDS` | `1800` | Maximum duration of one Hermes task before cancellation |
+| `VOICE_AGENT_HERMES_PROGRESS_INTERVAL_SECONDS` | `60` | Seconds between visual and spoken long-task updates |
 | `VOICE_AGENT_MODEL_SERVER_URL` | `http://127.0.0.1:8888` | Optional health, model, context, and vLLM metrics endpoint |
 | `VOICE_AGENT_KOKORO_URL` | `http://127.0.0.1:8880` | Kokoro Studio API |
 | `VOICE_AGENT_KOKORO_OUTPUT_DIR` | unset | Optional host path for a Docker-mounted Kokoro output directory |
@@ -223,7 +226,7 @@ The web application itself is lightweight and does not allocate GPU memory. On o
 
 The optional AI services dominate hardware use and vary by model and configuration. In that same deployment:
 
-- The active local language model used about **95.2 GiB** of GPU/unified memory.
+- The two-node DeepSeek deployment used about **190.5 GiB** of GPU/unified memory in total—approximately **95.2 GiB per DGX Spark**. This vLLM allocation includes model weights, KV cache, activations, and runtime memory.
 - Kokoro used about **1.74 GiB** of GPU memory and **2.4 GiB** of container memory.
 
 These are observed examples, not minimum requirements. A smaller model, hosted provider, CPU transcription, or different TTS stack will change the total substantially.

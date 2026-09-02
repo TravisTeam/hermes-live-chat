@@ -7,6 +7,8 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=%h/hermes-live-chat
 Environment=VOICE_AGENT_HERMES_PROFILE=default
+Environment=VOICE_AGENT_HERMES_TIMEOUT_SECONDS=1800
+Environment=VOICE_AGENT_HERMES_PROGRESS_INTERVAL_SECONDS=60
 Environment=VOICE_AGENT_MODEL_SERVER_URL=http://127.0.0.1:8888
 Environment=VOICE_AGENT_KOKORO_URL=http://127.0.0.1:8880
 Environment=VOICE_AGENT_KOKORO_VOICE=af_heart

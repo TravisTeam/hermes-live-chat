@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import queue
 import re
 import shutil
 import subprocess
+import threading
 import time
 import uuid
 from collections.abc import Iterator
@@ -168,6 +170,17 @@ def acknowledgement_for(message: str) -> str:
     return "Got it. I'm on it."
 
 
+def progress_message(update_number: int, elapsed_seconds: int) -> tuple[str, str]:
+    spoken_messages = (
+        "I'm still working on that.",
+        "This is taking a little longer, but I'm still on it.",
+        "I'm still working. I'll let you know as soon as it's ready.",
+    )
+    spoken = spoken_messages[update_number % len(spoken_messages)]
+    minutes = max(1, round(elapsed_seconds / 60))
+    return f"{spoken} · {minutes} min elapsed", spoken
+
+
 def snapshot_artifacts(directory: Path) -> dict[str, tuple[int, int]]:
     snapshot: dict[str, tuple[int, int]] = {}
     for path in directory.rglob("*"):
@@ -274,9 +287,69 @@ def reply_events(
                 "audio": audio_data_uri(ack_audio),
             }) + "\n"
         log_event("hermes_start", turn_id=turn_id, started_at=started_at, session_id=session_id)
-        reply, selected_profile = run_hermes_turn(
-            message, profile_id=profile_id, session_id=session_id
+        result_queue: queue.Queue[tuple[str, object]] = queue.Queue(maxsize=1)
+
+        def run_turn() -> None:
+            try:
+                result_queue.put((
+                    "result",
+                    run_hermes_turn(message, profile_id=profile_id, session_id=session_id),
+                ))
+            except Exception as exc:
+                result_queue.put(("error", exc))
+
+        worker = threading.Thread(
+            target=run_turn,
+            name=f"hermes-turn-{turn_id[:8]}",
+            daemon=True,
         )
+        worker.start()
+        update_number = 0
+        try:
+            while True:
+                try:
+                    result_type, result = result_queue.get(
+                        timeout=max(0.05, settings.hermes_progress_interval_seconds)
+                    )
+                    break
+                except queue.Empty:
+                    elapsed_seconds = int(time.monotonic() - started_at)
+                    display_text, spoken_text = progress_message(update_number, elapsed_seconds)
+                    progress_event: dict[str, object] = {
+                        "type": "progress",
+                        "text": display_text,
+                        "elapsed_seconds": elapsed_seconds,
+                    }
+                    if speak:
+                        try:
+                            progress_event["audio"] = audio_data_uri(
+                                KokoroClient(settings).synthesize(spoken_text)
+                            )
+                        except Exception as exc:
+                            log_event(
+                                "progress_tts_error",
+                                turn_id=turn_id,
+                                started_at=started_at,
+                                error=str(exc),
+                            )
+                    log_event(
+                        "hermes_progress",
+                        turn_id=turn_id,
+                        started_at=started_at,
+                        update=update_number + 1,
+                        elapsed_seconds=elapsed_seconds,
+                    )
+                    yield json.dumps(progress_event) + "\n"
+                    update_number += 1
+        finally:
+            if worker.is_alive():
+                cancel_hermes_turn(session_id)
+
+        if result_type == "error":
+            assert isinstance(result, Exception)
+            raise result
+        assert isinstance(result, tuple)
+        reply, selected_profile = result
         log_event("hermes_complete", turn_id=turn_id, started_at=started_at, chars=len(reply))
         yield json.dumps({"type": "assistant_start", "profile_id": selected_profile.id}) + "\n"
         # Hermes's programmatic CLI returns the completed turn. Emit small text deltas so

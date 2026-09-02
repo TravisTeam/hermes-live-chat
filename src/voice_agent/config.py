@@ -30,6 +30,10 @@ class Settings:
     )
     canary_language: str = os.getenv("VOICE_AGENT_CANARY_LANGUAGE", "en")
     canary_threads: int = int(os.getenv("VOICE_AGENT_CANARY_THREADS", "8"))
+    hermes_timeout_seconds: int = int(os.getenv("VOICE_AGENT_HERMES_TIMEOUT_SECONDS", "1800"))
+    hermes_progress_interval_seconds: float = float(
+        os.getenv("VOICE_AGENT_HERMES_PROGRESS_INTERVAL_SECONDS", "60")
+    )
     temp_dir: str = os.getenv("VOICE_AGENT_TEMP_DIR", "/tmp/hermes-live-chat")
     artifact_dir: str = os.getenv(
         "VOICE_AGENT_ARTIFACT_DIR",

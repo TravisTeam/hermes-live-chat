@@ -1,4 +1,6 @@
 import json
+import time
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -49,6 +51,31 @@ def test_acknowledgement_matches_task_type():
     assert "look into" in server.acknowledgement_for("Please research the roof issue")
     assert "work on" in server.acknowledgement_for("Build a new report")
     assert server.acknowledgement_for("Tell me something") == "Got it. I'm on it."
+
+
+def test_long_turn_emits_progress_until_result(monkeypatch, tmp_path):
+    settings = replace(server.get_settings(), hermes_progress_interval_seconds=0.01)
+
+    def slow_turn(text, profile_id, session_id):
+        time.sleep(0.12)
+        return "Long task complete.", VoiceProfile(
+            "hermes_current", "Active model", "default", "test"
+        )
+
+    monkeypatch.setattr(server, "get_settings", lambda: settings)
+    monkeypatch.setattr(server, "artifact_session_dir", lambda session_id: tmp_path)
+    monkeypatch.setattr(server, "run_hermes_turn", slow_turn)
+    events = [
+        json.loads(line)
+        for line in server.reply_events(
+            "Do a long task", "browser-123", "hermes_current", False
+        )
+    ]
+
+    progress = [event for event in events if event["type"] == "progress"]
+    assert progress
+    assert "still" in progress[0]["text"].lower()
+    assert next(event for event in events if event["type"] == "assistant_done")["text"] == "Long task complete."
 
 
 def test_new_hermes_file_is_streamed_as_an_artifact(monkeypatch, tmp_path):
