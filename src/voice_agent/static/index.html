@@ -875,8 +875,10 @@ async function loadStatus() {
     for (const key of ['hermes','llm','whisper','kokoro']) {
       const el = document.querySelector(`#${key}`), ok = !!health[key];
       el.className = `pill ${ok ? 'ok' : 'bad'}`;
-      const label = key === 'llm' ? 'Model' : key === 'whisper' ? (health.stt_engine?.startsWith('Canary') ? 'Canary' : 'Whisper') : key[0].toUpperCase()+key.slice(1);
+      const modelLabel = /deepseek/i.test(health.model_name || '') ? 'DeepSeek' : 'Model';
+      const label = key === 'llm' ? modelLabel : key === 'whisper' ? (health.stt_engine?.startsWith('Canary') ? 'Canary' : 'Whisper') : key[0].toUpperCase()+key.slice(1);
       el.textContent = `${label} ${ok ? 'ready' : 'offline'}`;
+      if (key === 'llm') el.title = health.model_name || 'Active model';
     }
     const config = await fetch(api('api/config')).then(r => r.json());
     document.querySelector('#config').textContent = JSON.stringify({...config, session_id:sessionId}, null, 2);
